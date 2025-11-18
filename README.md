@@ -28,7 +28,7 @@ Built an end-to-end ML pipeline to classify IT service tickets (Access, Hardware
    ## How to Run
 
 ### 1. Create and activate a virtual environment
-```bash
+
 python3 -m venv .venv
 source .venv/bin/activate    # Linux / macOS
 # OR

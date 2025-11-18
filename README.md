@@ -3,6 +3,8 @@ Built an end-to-end ML pipeline to classify IT service tickets (Access, Hardware
 
 - Link to dataset used: https://www.kaggle.com/datasets/adisongoh/it-service-ticket-classification-dataset?resource=download
 
+- Resulting accuracy: 86% based on main labels. There are sub-labels used for expressing the ticket issue in more detail.
+
 ## Pipeline Overview
 1. **Data Processing (`process_data.py`)**  
    - Loads raw ticket CSV  
@@ -23,8 +25,12 @@ Built an end-to-end ML pipeline to classify IT service tickets (Access, Hardware
    - Loads latest trained model  
    - Predicts main category  
    - Optional sub-label prediction using BART-MNLI zero-shot model  
-   - Supports interactive mode and evaluation mode
+   - Supports interactive mode and evaluation mode in the terminal
 
+5. **Frontend GUI (`frontend.py`)**
+    - Uses stream lit to run some GUI for my ticket classifier
+    Outputs graphs of the probability it is a certain label.
+    
    ## How to Run
 
 ### 1. Create and activate a virtual environment
@@ -38,8 +44,13 @@ source .venv/bin/activate    # Linux / macOS
 
 - pip install -r requirements.txt
 
-### 3. Run the ticket classifer
+### 3. Run the ticket classifer on the terminal or Browser
 
+
+#### For browser GUI
+- streamlit run src/frontend.py 
+
+#### For within the terminal
 - python src/predict_ticket.py
 
 ## Optional: Full Pipeline Execution
@@ -91,8 +102,11 @@ Modes available:
 - Interactive prediction  
 - Evaluation on the test set  
 
+### 5. Classify tickets with GUI and show results with graphs
+Allows the program to run in the browser.
+
+Command to run: `streamlit run src/frontend.py`
+
 ---
 
-Running these steps is optional; the system is ready to use immediately using only `predict_ticket.py`.
-
-
+Running these steps is optional; the system is ready to use immediately using only `streamlit run src/frontend.py` or `predict_ticket.py`.

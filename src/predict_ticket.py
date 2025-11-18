@@ -4,25 +4,17 @@ import joblib
 import pandas as pd
 from transformers import pipeline
 
-# ============================================================
-# PATHS
-# ============================================================
-
+# paths
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
-
 PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
 MODELS_DIR = os.path.join(DATA_DIR, "results", "models_upgraded")
-
 RAW_CSV_FALLBACK = os.path.join(DATA_DIR, "all_tickets_processed_improved_v3.csv")
 
 MODEL_PREFIX = "ticket_classifier_model_"
-VECT_PREFIX  = "ticket_tfidf_vectorizer_"
+VECT_PREFIX = "ticket_tfidf_vectorizer_"
 
-# ============================================================
-# SUB-LABEL DEFINITIONS
-# ============================================================
-
+# sub-labels
 SUB_LABELS = {
     "Access": [
         "password reset", "account locked", "VPN access",
@@ -59,10 +51,7 @@ SUB_LABELS = {
     ],
 }
 
-# ============================================================
-# LOAD COMPONENTS
-# ============================================================
-
+# get latest model/vectorizer
 def get_latest_by_prefix(directory, prefix):
     files = [f for f in os.listdir(directory)
              if f.startswith(prefix) and f.endswith(".joblib")]
@@ -70,10 +59,10 @@ def get_latest_by_prefix(directory, prefix):
         raise RuntimeError(f"No {prefix}* joblib found.")
     return os.path.join(directory, max(files))
 
-
+# load model + vectorizer
 def load_model_and_vectorizer():
     model_path = get_latest_by_prefix(MODELS_DIR, MODEL_PREFIX)
-    vect_path  = get_latest_by_prefix(MODELS_DIR, VECT_PREFIX)
+    vect_path = get_latest_by_prefix(MODELS_DIR, VECT_PREFIX)
 
     model = joblib.load(model_path)
     vectorizer = joblib.load(vect_path)
@@ -83,7 +72,7 @@ def load_model_and_vectorizer():
 
     return model, vectorizer
 
-
+# load labels from train or fallback
 def load_label_list():
     train_path = os.path.join(PROCESSED_DIR, "train.csv")
     if os.path.exists(train_path):
@@ -93,35 +82,19 @@ def load_label_list():
     df = pd.read_csv(RAW_CSV_FALLBACK)
     return sorted(df["label"].unique().tolist())
 
-
-# ============================================================
-# HUGGINGFACE SUBLABEL PIPELINE
-# ============================================================
-
+# HF zero-shot classifier
 def load_zero_shot_pipeline():
     print("\n[HF] Loading zero-shot model (facebook/bart-large-mnli)...")
-    clf = pipeline(
-        "zero-shot-classification",
-        model="facebook/bart-large-mnli"
-    )
+    clf = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
     print("[HF] Loaded.")
     return clf
 
-
-# ============================================================
-# MAIN LABEL VIA LOGISTIC REGRESSION ONLY
-# ============================================================
-
+# predict main label via LR
 def predict_main_label(text, lr_model, vectorizer):
     X = vectorizer.transform([text])
-    pred = lr_model.predict(X)[0]
-    return pred
+    return lr_model.predict(X)[0]
 
-
-# ============================================================
-# SUB-LABEL (HF ONLY)
-# ============================================================
-
+# predict sub-label via HF only
 def predict_sub_label(text, main_label, hf_clf):
     candidates = SUB_LABELS.get(main_label)
     if not candidates:
@@ -130,11 +103,7 @@ def predict_sub_label(text, main_label, hf_clf):
     hf_output = hf_clf(text, candidate_labels=candidates, multi_label=True)
     return hf_output["labels"][0], hf_output["scores"][0]
 
-
-# ============================================================
-# OPTIONAL EVALUATION (LR ONLY)
-# ============================================================
-
+# load test set
 def load_test_texts_and_labels():
     test_path = os.path.join(PROCESSED_DIR, "test.csv")
     if os.path.exists(test_path):
@@ -146,10 +115,9 @@ def load_test_texts_and_labels():
     df_test = df.iloc[start:]
     return df_test["Description_clean"].tolist(), df_test["label"].tolist()
 
-
+# evaluate LR model only
 def evaluate_lr_only(lr_model, vectorizer):
     from sklearn.metrics import classification_report
-
     texts, labels_true = load_test_texts_and_labels()
     X = vectorizer.transform(texts)
     preds = lr_model.predict(X)
@@ -157,11 +125,7 @@ def evaluate_lr_only(lr_model, vectorizer):
     print("\n=== LR-ONLY MODEL ACCURACY ===\n")
     print(classification_report(labels_true, preds, digits=3))
 
-
-# ============================================================
-# INTERACTIVE MODE
-# ============================================================
-
+# interactive mode
 def interactive_mode(lr_model, vectorizer, hf_clf):
     print("\n=== Ticket Classifier (Main = LR, Sub = HF) ===\n")
 
@@ -182,11 +146,7 @@ def interactive_mode(lr_model, vectorizer, hf_clf):
             print(f"→ SUB-CATEGORY : {sub_label}  (≈ {sub_score:.2f})")
         print("")
 
-
-# ============================================================
-# MAIN ENTRY
-# ============================================================
-
+# entry
 def main():
     lr_model, vectorizer = load_model_and_vectorizer()
     hf_clf = load_zero_shot_pipeline()
@@ -200,7 +160,6 @@ def main():
         evaluate_lr_only(lr_model, vectorizer)
     else:
         interactive_mode(lr_model, vectorizer, hf_clf)
-
 
 if __name__ == "__main__":
     main()

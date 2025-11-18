@@ -2,67 +2,47 @@ import os
 import streamlit as st
 import joblib
 import numpy as np
+import pandas as pd
 
-# ============================================================
-# PATHS
-# ============================================================
-
+# paths
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FEATURES_DIR = os.path.join(ROOT, "data", "features")
-MODELS_DIR   = os.path.join(ROOT, "data", "models")
-
+MODELS_DIR = os.path.join(ROOT, "data", "models")
 VECT_PATH = os.path.join(FEATURES_DIR, "tfidf_vectorizer.joblib")
 
-
-# ============================================================
-# HELPERS
-# ============================================================
-
+# get newest trained model
 def get_latest_model():
-    """Return path to the newest ticket_classifier_*.joblib file."""
-    candidates = [
+    files = [
         f for f in os.listdir(MODELS_DIR)
         if f.startswith("ticket_classifier_") and f.endswith(".joblib")
     ]
-
-    if not candidates:
+    if not files:
         raise RuntimeError("No trained models found in /data/models")
+    return os.path.join(MODELS_DIR, max(files))
 
-    return os.path.join(MODELS_DIR, max(candidates))
-
-
+# load cached vectorizer + model
 @st.cache_resource
 def load_model_and_vectorizer():
-    """Load model + TF-IDF vectorizer and cache them."""
     model_path = get_latest_model()
     vectorizer = joblib.load(VECT_PATH)
     model = joblib.load(model_path)
     return model, vectorizer
 
-
+# run prediction
 def predict(model, vectorizer, text):
     X = vectorizer.transform([text])
     pred = model.predict(X)[0]
     proba = model.predict_proba(X)[0]
     return pred, proba
 
-
-# ============================================================
-# STREAMLIT UI
-# ============================================================
-
-st.set_page_config(
-    page_title="Cummins Ticket Classifier",
-    page_icon="🛠️",
-    layout="centered"
-)
+# streamlit ui
+st.set_page_config(page_title="Cummins Ticket Classifier", page_icon="🛠️")
 
 st.title("🛠️ Cummins IT Ticket Classifier")
 st.write("Paste any IT ticket description and this AI will classify it automatically.")
 
 model, vectorizer = load_model_and_vectorizer()
 
-# Text input area
 ticket_text = st.text_area(
     "Enter ticket description:",
     placeholder="Example: 'Cannot log into SAP, receiving user authentication failure...'",
@@ -78,15 +58,13 @@ if st.button("Classify Ticket"):
         st.subheader("🔍 Prediction")
         st.success(f"**Category:** {pred}")
 
-        # Show probability distribution
-        st.subheader("📊 Model Confidence")
-        labels = model.classes_
-        conf_df = { "Category": labels, "Probability": np.round(proba, 4) }
+        # prepare chart dataframe
+        df = pd.DataFrame({
+            "Category": model.classes_,
+            "Probability": np.round(proba, 4)
+        })
 
-        st.bar_chart(
-            data={"Probability": proba},
-            x=labels,
-            y="Probability"
-        )
+        st.subheader("📊 Model Confidence")
+        st.bar_chart(df.set_index("Category"))
 
         st.write("Done.")
